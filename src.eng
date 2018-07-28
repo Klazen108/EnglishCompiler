@@ -1,1 +1,2 @@
-Set x to 0. Then, add 2 to x. Finally, display x.
+Set x to 0. Then, add 2 to x. 
+Finally, if x is greater than 1, display x. Otherwise, display "error" to the end user.

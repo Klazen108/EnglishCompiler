@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 	"unicode"
 )
 
@@ -22,10 +23,12 @@ func main() {
 	}
 
 	tokens := Tokenize(dat)
+	tokens = TokenizeStep2(tokens)
+
 	TokenDebugPrint(tokens)
-	//fmt.Printf("%v", tokens)
 }
 
+//A Token is an individual unit of code, ready to be lexically analyzed.
 type Token struct {
 	tokType  TokenType
 	value    string
@@ -38,11 +41,16 @@ type Token struct {
 type TokenType uint
 
 const (
-	None        TokenType = 0
+	//None represents an unrecognized token
+	None TokenType = 0
+	//Punctuation represents separator tokens
 	Punctuation TokenType = 1
-	Whitespace  TokenType = 2
-	Number      TokenType = 3
-	Word        TokenType = 4
+	//Whitespace represents blank space tokens
+	Whitespace TokenType = 2
+	//Number represents numeric constant tokens
+	Number TokenType = 3
+	//Word represents variables, keywords, and character-based constant tokens
+	Word TokenType = 4
 )
 
 func stringInSlice(a rune, list []rune) bool {
@@ -54,12 +62,14 @@ func stringInSlice(a rune, list []rune) bool {
 	return false
 }
 
+//TokenDebugPrint prints the contents of the token array in a standardized format
 func TokenDebugPrint(tokens []Token) {
 	for _, token := range tokens {
 		fmt.Printf("L%03d,C%03d-%03d %11s: [%s]\n", token.line, token.colStart, token.colEnd, token.tokTypeString(), token.value)
 	}
 }
 
+//tokTypeString returns a human-readable interpretation of each token type
 func (token Token) tokTypeString() string {
 	curTokType := "None"
 	switch token.tokType {
@@ -80,6 +90,26 @@ func (token Token) tokTypeString() string {
 		break
 	}
 	return curTokType
+}
+
+//split splits a token into two
+//offset: 0-based index of the first char to split off for the right token
+func (token Token) split(offset uint, leftType TokenType, rightType TokenType) [2]Token {
+	return [2]Token{
+		Token{
+			tokType:  leftType,
+			value:    token.value[0:offset],
+			line:     token.line,
+			colStart: token.colStart,
+			colEnd:   token.colStart + offset - 1,
+		},
+		Token{
+			tokType:  rightType,
+			value:    token.value[offset:],
+			line:     token.line,
+			colStart: token.colStart + offset,
+			colEnd:   token.colEnd},
+	}
 }
 
 //Tokenize takes a unicode input and scans over it,
@@ -128,8 +158,6 @@ func Tokenize(input []byte) []Token {
 				nextTokenType = Punctuation
 			} else if unicode.IsSpace(rune(runeValue)) {
 				nextTokenType = Whitespace
-			} else if unicode.IsLetter(rune(runeValue)) {
-				nextTokenType = Word
 			}
 			break
 		case Word:
@@ -137,8 +165,6 @@ func Tokenize(input []byte) []Token {
 				nextTokenType = Punctuation
 			} else if unicode.IsSpace(rune(runeValue)) {
 				nextTokenType = Whitespace
-			} else if unicode.IsDigit(rune(runeValue)) {
-				nextTokenType = Number
 			}
 			break
 		}
@@ -169,7 +195,28 @@ func Tokenize(input []byte) []Token {
 		value:    curToken,
 		line:     curLine,
 		colStart: curColStart,
-		colEnd:   curCol,
+		colEnd:   curCol - 1,
 	})
 	return tokens
+}
+
+//TokenizeStep2 performs the second tokenization step. Since there are some shared character sets
+//between token types, it is necessary to check those types and split the tokens apart if necessary.
+//For example, "0.0" is a valid number, but "0." should be two separate number and punctuation tokens.
+func TokenizeStep2(tokens []Token) []Token {
+	var newTokens []Token
+	for _, token := range tokens {
+		if token.tokType == Number && strings.HasSuffix(token.value, ".") {
+			splitTokens := token.split(uint(len(token.value))-1, Number, Punctuation)
+			newTokens = append(newTokens, splitTokens[:]...)
+			continue
+		}
+		if token.tokType == Number && strings.HasSuffix(token.value, ",") {
+			splitTokens := token.split(uint(len(token.value))-1, Number, Punctuation)
+			newTokens = append(newTokens, splitTokens[:]...)
+			continue
+		}
+		newTokens = append(newTokens, token)
+	}
+	return newTokens
 }
