@@ -22,11 +22,205 @@ func main() {
 		panic(err)
 	}
 
-	tokens := Tokenize(dat)
-	tokens = TokenizeStep2(tokens)
+	statements := Compile(dat)
+	StatementDebugPrint(statements)
 
-	TokenDebugPrint(tokens)
+	ast := genAST(statements)
+
+	state := ProgramState{
+		identifiers: map[string]string{},
+		types:       map[string]DataType{},
+	}
+	RunProgram(ast, state)
+	fmt.Println("Program Complete! Result:")
+	state.PrintState()
 }
+
+//RunProgram executes the program (represented as an Abstract Syntax Tree) against a backing program state.
+func RunProgram(ast AST, state ProgramState) {
+	for _, verb := range ast {
+		verb.evaluate(state)
+	}
+}
+
+func (s ProgramState) PrintState() {
+	for k, v := range s.identifiers {
+		fmt.Printf("(%6s)%s = %s\n", s.types[k].toString(), k, v)
+	}
+}
+
+func (d DataType) toString() string {
+	switch d {
+	case dtAny:
+		return "Any"
+	case dtNumber:
+		return "Number"
+	case dtString:
+		return "String"
+	default:
+		return "Unknown"
+	}
+}
+
+//ParserError represents a failure in parsing.
+type ParserError struct {
+	stmtIndex int
+	tok       Token
+	message   string
+}
+
+//ParserError.Error displays the statement, line and column numbers (for debugging) as well as an error message explaining
+//what failed to parse.
+func (p ParserError) Error() string {
+	return fmt.Sprintf("Parser Failure: Statement %d (Line %d Column %d) %s", p.stmtIndex, p.tok.line, p.tok.colStart, p.message)
+}
+
+func genAST(program []Statement) AST {
+	var ast AST
+	for stmtIndex, stmt := range program {
+		if stmt[0].tokType != Word {
+			panic(ParserError{stmtIndex: stmtIndex, tok: stmt[0], message: fmt.Sprintf("First token in statement must be a word, was %s", stmt[0].tokTypeString())})
+		}
+
+		operation := strings.ToLower(stmt[0].value)
+		switch operation {
+		case "set":
+			//TODO: parse and generate the alpha and beta dynamically, don't assume it will always be "set alpha to beta"
+			/*
+				i := 1
+				for i = 1; i < len(stmt); i++ {
+					if strings.ToLower(stmt[i].value) == "to" {
+						break
+					}
+				}
+				funcSet(stmt[1:i-1], stmt[i+1:], state)
+			*/
+			v := SetVerb{
+				alpha: Identifier{
+					name:  stmt[1].value,
+					dType: dtAny,
+				},
+				beta: ConstNumExpression{
+					value: stmt[3].value,
+				},
+			}
+			ast = append(ast, v)
+			break
+		}
+	}
+	return ast
+}
+
+//SetVerb modifies the program state by setting the value of the
+//variable identified by alpha to the value returned by beta.
+type SetVerb struct {
+	alpha Identifier
+	beta  Expression
+}
+
+//ConstNumExpression is an expression which evaluates to the
+//same constant numeric expression, always
+type ConstNumExpression struct {
+	value string
+}
+
+//ConstNumExpression.dataType always returns dtNumber, since it
+//is constant and numeric
+func (c ConstNumExpression) dataType() DataType {
+	return dtNumber
+}
+
+func (c ConstNumExpression) evaluate(state ProgramState) string {
+	return c.value
+}
+
+func (v SetVerb) evaluate(state ProgramState) {
+	state.setIdentifier(v.alpha, v.beta.evaluate(state), v.beta.dataType())
+}
+
+//An AST in the context of this interpreter is a list of verbs
+//to be executed in sequence. More generally, an AST is an abstract
+//syntax tree, representing a program source code in a more
+//interpreter-friendly format.
+type AST []Verb
+
+//A Verb is an executable expression which returns no result, but
+//may modify program (or global) state.
+type Verb interface {
+	evaluate(state ProgramState)
+}
+
+//An Expression is an evaluatable expression which returns a result
+//and has a data type.
+type Expression interface {
+	dataType() DataType
+	evaluate(state ProgramState) string
+}
+
+//An Identifier is a "pointer" to some memory location in program state,
+//referenced by name and with an associated data type.
+type Identifier struct {
+	name  string
+	dType DataType
+}
+
+//The ProgramState encapsulates the complete state of the program.
+//Identifiers identify memory in this structure
+type ProgramState struct {
+	identifiers map[string]string
+	types       map[string]DataType
+}
+
+func (state ProgramState) setIdentifier(id Identifier, value string, dType DataType) {
+	if vType, ok := state.types[id.name]; ok {
+		if vType != dType {
+			panic("Invalid datatype!")
+		}
+	} else {
+		state.types[id.name] = dType
+	}
+	state.identifiers[id.name] = value
+}
+
+type DataType uint
+
+const (
+	dtAny    DataType = 0
+	dtString DataType = 1
+	dtNumber DataType = 2
+)
+
+func Compile(input []byte) []Statement {
+	tokens := Tokenize(input)
+	tokens = TokenizeStep2(tokens)
+	//remove whitespace tokens - they're unnecessary past this point
+	var newTokens []Token
+	for _, token := range tokens {
+		if token.tokType != Whitespace {
+			newTokens = append(newTokens, token)
+		}
+	}
+	tokens = newTokens
+
+	//TokenDebugPrint(tokens)
+
+	//Split the stream of tokens into statements
+	var curStatement Statement
+	var statements []Statement
+	for _, token := range tokens {
+		if token.tokType == Punctuation && token.value == "." {
+			statements = append(statements, curStatement)
+			curStatement = Statement{}
+		} else {
+			//no need to carry the period past here
+			curStatement = append(curStatement, token)
+		}
+	}
+	return statements
+}
+
+//A Statement is a collection of tokens representing a single operation/action.
+type Statement []Token
 
 //A Token is an individual unit of code, ready to be lexically analyzed.
 type Token struct {
@@ -35,6 +229,7 @@ type Token struct {
 	line     uint
 	colStart uint
 	colEnd   uint
+	purpose  PurposeType
 }
 
 /*TokenType represents a type of token*/
@@ -53,6 +248,15 @@ const (
 	Word TokenType = 4
 )
 
+type PurposeType uint
+
+const (
+	ptKeyword    PurposeType = 1
+	ptVerb       PurposeType = 2
+	ptIdentifier PurposeType = 3
+	ptConstant   PurposeType = 4
+)
+
 func stringInSlice(a rune, list []rune) bool {
 	for _, b := range list {
 		if b == a {
@@ -65,7 +269,14 @@ func stringInSlice(a rune, list []rune) bool {
 //TokenDebugPrint prints the contents of the token array in a standardized format
 func TokenDebugPrint(tokens []Token) {
 	for _, token := range tokens {
-		fmt.Printf("L%03d,C%03d-%03d %11s: [%s]\n", token.line, token.colStart, token.colEnd, token.tokTypeString(), token.value)
+		fmt.Printf("  L%03d,C%03d-%03d %11s: [%s]\n", token.line, token.colStart, token.colEnd, token.tokTypeString(), token.value)
+	}
+}
+
+func StatementDebugPrint(statements []Statement) {
+	for index, statement := range statements {
+		fmt.Printf("Statement %03d\n", index)
+		TokenDebugPrint(statement)
 	}
 }
 
@@ -212,6 +423,11 @@ func TokenizeStep2(tokens []Token) []Token {
 			continue
 		}
 		if token.tokType == Number && strings.HasSuffix(token.value, ",") {
+			splitTokens := token.split(uint(len(token.value))-1, Number, Punctuation)
+			newTokens = append(newTokens, splitTokens[:]...)
+			continue
+		}
+		if token.tokType == Punctuation && strings.HasSuffix(token.value, ".") && strings.Contains(token.value, "\"") {
 			splitTokens := token.split(uint(len(token.value))-1, Number, Punctuation)
 			newTokens = append(newTokens, splitTokens[:]...)
 			continue
