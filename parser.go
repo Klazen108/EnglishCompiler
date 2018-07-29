@@ -19,6 +19,22 @@ func StatementDebugPrint(statements Program) {
 	}
 }
 
+type IdentifierExpression struct {
+	id Identifier
+}
+
+func (c IdentifierExpression) evaluate(state ProgramState) string {
+	val, ok := state.getValue(c.id)
+	if !ok {
+		panic("invalid identifier: " + c.id.name)
+	}
+	return val
+}
+
+func (c IdentifierExpression) dataType() DataType {
+	return dtString //TODO: idk?
+}
+
 //ConstNumExpression is an expression which evaluates to the
 //same constant numeric expression, always
 type ConstNumExpression struct {
@@ -147,6 +163,17 @@ func GenAST(program []Statement) AST {
 				beta: Identifier{
 					name:  stmt[3].value,
 					dType: dtAny,
+				},
+			}
+			ast = append(ast, v)
+			break
+		case "display":
+			v := DisplayVerb{
+				alpha: IdentifierExpression{
+					id: Identifier{
+						name:  stmt[1].value,
+						dType: dtString,
+					},
 				},
 			}
 			ast = append(ast, v)

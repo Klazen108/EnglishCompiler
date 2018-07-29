@@ -1,3 +1,1 @@
-Set x to 5. Add 2 to x. 
-If x is greater than 1, display x. 
-Otherwise, display "error".
+Set value to 5. Add 2 to value. Display value.

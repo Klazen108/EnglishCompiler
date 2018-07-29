@@ -20,17 +20,22 @@ func main() {
 		panic(err)
 	}
 
+	fmt.Println("Program Input:")
+	fmt.Println(string(dat))
+
+	fmt.Println("Compiling...")
 	statements := Compile(dat)
-	StatementDebugPrint(statements)
+	//StatementDebugPrint(statements)
 
 	ast := GenAST(statements)
 
+	fmt.Println("Executing...")
 	state := ProgramState{
 		identifiers: map[string]string{},
 		types:       map[string]DataType{},
 	}
 	RunProgram(ast, state)
-	fmt.Println("Program Complete! Result:")
+	fmt.Println("Final Program State:")
 	state.PrintState()
 }
 

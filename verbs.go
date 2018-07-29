@@ -1,6 +1,9 @@
 package main
 
-import "strconv"
+import (
+	"fmt"
+	"strconv"
+)
 
 //A Verb is an executable expression which returns no result, but
 //may modify program (or global) state.
@@ -57,4 +60,13 @@ func (v AddVerb) evaluate(state ProgramState) {
 	if err = state.SetValue(v.beta, s, dtNumber); err != nil {
 		panic(err)
 	}
+}
+
+//DisplayVerb prints the value of its expression argument to the console
+type DisplayVerb struct {
+	alpha Expression
+}
+
+func (v DisplayVerb) evaluate(state ProgramState) {
+	fmt.Println(v.alpha.evaluate(state))
 }
