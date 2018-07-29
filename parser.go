@@ -80,7 +80,6 @@ type Identifier struct {
 //execution, it needs to be converted to an AST - see GenAST
 func Compile(input []byte) Program {
 	tokens := Tokenize(input)
-	tokens = TokenizeStep2(tokens)
 	//remove whitespace tokens - they're unnecessary past this point
 	var newTokens []Token
 	for _, token := range tokens {
