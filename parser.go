@@ -19,38 +19,6 @@ func StatementDebugPrint(statements Program) {
 	}
 }
 
-type IdentifierExpression struct {
-	id Identifier
-}
-
-func (c IdentifierExpression) evaluate(state ProgramState) string {
-	val, ok := state.getValue(c.id)
-	if !ok {
-		panic("invalid identifier: " + c.id.name)
-	}
-	return val
-}
-
-func (c IdentifierExpression) dataType() DataType {
-	return dtString //TODO: idk?
-}
-
-//ConstNumExpression is an expression which evaluates to the
-//same constant numeric expression, always
-type ConstNumExpression struct {
-	value string
-}
-
-//ConstNumExpression.dataType always returns dtNumber, since it
-//is constant and numeric
-func (c ConstNumExpression) dataType() DataType {
-	return dtNumber
-}
-
-func (c ConstNumExpression) evaluate(state ProgramState) string {
-	return c.value
-}
-
 func (d DataType) toString() string {
 	switch d {
 	case dtAny:
@@ -77,13 +45,6 @@ const (
 	dtString DataType = 1
 	dtNumber DataType = 2
 )
-
-//An Expression is an evaluatable expression which returns a result
-//and has a data type.
-type Expression interface {
-	dataType() DataType
-	evaluate(state ProgramState) string
-}
 
 //An Identifier is a "pointer" to some memory location in program state,
 //referenced by name and with an associated data type.
