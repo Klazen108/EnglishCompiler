@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strconv"
 	"strings"
 	"unicode"
 )
@@ -106,6 +107,18 @@ func genAST(program []Statement) AST {
 			}
 			ast = append(ast, v)
 			break
+		case "add":
+			v := AddVerb{
+				alpha: ConstNumExpression{
+					value: stmt[1].value,
+				},
+				beta: Identifier{
+					name:  stmt[3].value,
+					dType: dtAny,
+				},
+			}
+			ast = append(ast, v)
+			break
 		}
 	}
 	return ast
@@ -116,6 +129,13 @@ func genAST(program []Statement) AST {
 type SetVerb struct {
 	alpha Identifier
 	beta  Expression
+}
+
+//AddVerb modifies the program state by adding an expression's result
+//to the variable identified by beta.
+type AddVerb struct {
+	alpha Expression
+	beta  Identifier
 }
 
 //ConstNumExpression is an expression which evaluates to the
@@ -136,6 +156,46 @@ func (c ConstNumExpression) evaluate(state ProgramState) string {
 
 func (v SetVerb) evaluate(state ProgramState) {
 	state.setIdentifier(v.alpha, v.beta.evaluate(state), v.beta.dataType())
+}
+
+func (v AddVerb) evaluate(state ProgramState) {
+	dType, exists := state.getType(v.beta)
+	if !exists {
+		panic("Uninitialized identifier " + v.beta.name)
+	}
+
+	if dType != dtNumber {
+		panic("Invalid datatype for identifier " + v.beta.name + "! Expected number, got " + dType.toString())
+	}
+
+	if v.alpha.dataType() != dtNumber {
+		panic("Invalid datatype for expression! Expected number, got " + v.alpha.dataType().toString())
+	}
+
+	sValue, _ := state.getValue(v.beta)
+	i, err := strconv.Atoi(sValue)
+	if err != nil {
+		panic("Unable to parse integer, despite having a numeric datatype: " + sValue)
+	}
+	sAddend := v.alpha.evaluate(state)
+	iAddend, err := strconv.Atoi(sAddend)
+	if err != nil {
+		panic("Unable to parse integer, despite having a numeric datatype: " + sAddend)
+	}
+	i += iAddend
+	s := strconv.Itoa(i)
+	state.setIdentifier(v.beta, s, dtNumber)
+}
+
+//Return: (type, exists?)
+func (s ProgramState) getType(i Identifier) (DataType, bool) {
+	t, ok := s.types[i.name]
+	return t, ok
+}
+
+func (s ProgramState) getValue(i Identifier) (string, bool) {
+	t, ok := s.identifiers[i.name]
+	return t, ok
 }
 
 //An AST in the context of this interpreter is a list of verbs
