@@ -146,13 +146,13 @@ func Tokenize(input []byte) []Token {
 		colStart: curColStart,
 		colEnd:   curCol - 1,
 	})
-	return tokens
+	return tokenizeStep2(tokens)
 }
 
-//TokenizeStep2 performs the second tokenization step. Since there are some shared character sets
+//tokenizeStep2 performs the second tokenization step. Since there are some shared character sets
 //between token types, it is necessary to check those types and split the tokens apart if necessary.
 //For example, "0.0" is a valid number, but "0." should be two separate number and punctuation tokens.
-func TokenizeStep2(tokens []Token) []Token {
+func tokenizeStep2(tokens []Token) []Token {
 	var newTokens []Token
 	for _, token := range tokens {
 		if token.tokType == Number && strings.HasSuffix(token.value, ".") {
