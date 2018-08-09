@@ -7,6 +7,7 @@ import "strconv"
 type Expression interface {
 	dataType() DataType
 	evaluate(state ProgramState) string
+	toString() string
 }
 
 type IdentifierExpression struct {
@@ -22,7 +23,11 @@ func (c IdentifierExpression) evaluate(state ProgramState) string {
 }
 
 func (c IdentifierExpression) dataType() DataType {
-	return dtString //TODO: idk?
+	return dtNumber //TODO: idk?
+}
+
+func (e IdentifierExpression) toString() string {
+	return e.id.name
 }
 
 //ConstNumExpression is an expression which evaluates to the
@@ -38,6 +43,10 @@ func (c ConstNumExpression) dataType() DataType {
 }
 
 func (c ConstNumExpression) evaluate(state ProgramState) string {
+	return c.value
+}
+
+func (c ConstNumExpression) toString() string {
 	return c.value
 }
 
@@ -74,4 +83,8 @@ func (e GreaterThanExpression) evaluate(state ProgramState) string {
 
 func (e GreaterThanExpression) dataType() DataType {
 	return dtNumber
+}
+
+func (e GreaterThanExpression) toString() string {
+	return e.lhs.toString() + " > " + e.rhs.toString()
 }

@@ -9,6 +9,7 @@ import (
 type ProgramState struct {
 	identifiers map[string]string
 	types       map[string]DataType
+	elseFlag    bool
 }
 
 //A StateChangeError indicates that the program state was unable to update
@@ -16,6 +17,14 @@ type ProgramState struct {
 type StateChangeError struct {
 	id      Identifier
 	message string
+}
+
+func (state ProgramState) FlagElse(set bool) {
+	state.elseFlag = set
+}
+
+func (state ProgramState) IsFlaggedElse() bool {
+	return state.elseFlag
 }
 
 func (e StateChangeError) Error() string {

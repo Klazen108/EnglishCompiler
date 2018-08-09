@@ -1,1 +1,1 @@
-Set value to 5. Add 2 to value. Display value.
+Set value to 5. Add 2 to value. If value is greater than 50 then display value. Otherwise display 0.

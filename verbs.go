@@ -9,6 +9,7 @@ import (
 //may modify program (or global) state.
 type Verb interface {
 	evaluate(state ProgramState)
+	toString() string
 }
 
 //SetVerb modifies the program state by setting the value of the
@@ -22,6 +23,10 @@ func (v SetVerb) evaluate(state ProgramState) {
 	if err := state.SetValue(v.alpha, v.beta.evaluate(state), v.beta.dataType()); err != nil {
 		panic(err)
 	}
+}
+
+func (v SetVerb) toString() string {
+	return v.alpha.name + " = " + v.beta.toString()
 }
 
 //AddVerb modifies the program state by adding an expression's result
@@ -62,6 +67,10 @@ func (v AddVerb) evaluate(state ProgramState) {
 	}
 }
 
+func (v AddVerb) toString() string {
+	return v.beta.name + "+=" + v.alpha.toString()
+}
+
 //DisplayVerb prints the value of its expression argument to the console
 type DisplayVerb struct {
 	alpha Expression
@@ -69,4 +78,41 @@ type DisplayVerb struct {
 
 func (v DisplayVerb) evaluate(state ProgramState) {
 	fmt.Println(v.alpha.evaluate(state))
+}
+
+func (v DisplayVerb) toString() string {
+	return "display " + v.alpha.toString()
+}
+
+type IfVerb struct {
+	predicate Expression
+	action    Verb
+}
+
+func (v IfVerb) evaluate(state ProgramState) {
+	if v.predicate.evaluate(state) == "1" {
+		fmt.Printf("%s was true: doing %s", v.predicate.toString(), v.action.toString())
+		v.action.evaluate(state)
+	} else {
+		state.FlagElse(true)
+	}
+}
+
+func (v IfVerb) toString() string {
+	return "if " + v.predicate.toString() + " then " + v.action.toString()
+}
+
+type OtherwiseVerb struct {
+	action Verb
+}
+
+func (v OtherwiseVerb) evaluate(state ProgramState) {
+	if state.IsFlaggedElse() {
+		v.action.evaluate(state)
+		state.FlagElse(false)
+	}
+}
+
+func (v OtherwiseVerb) toString() string {
+	return "otherwise " + v.action.toString()
 }
